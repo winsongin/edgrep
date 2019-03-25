@@ -151,11 +151,10 @@ int advance(char *lp, char *ep) {  char *curlp;  int i;
         if (braelist[i = *ep++] == 0) { error(Q); }  curlp = lp;
         while (backref(i, lp)) { lp += braelist[i] - braslist[i]; }
         while (lp >= curlp) {  if (advance(lp, ep)) { return(1); }  lp -= braelist[i] - braslist[i];  }  continue;
-      case CDOT|STAR:  curlp = lp;  while (*lp++) { }                goto star;
-      case CCHR|STAR:  curlp = lp;  while (*lp++ == *ep) { }  ++ep;  goto star;
+      case CDOT|STAR:  curlp = lp;  while (*lp++) { }                do {  lp--;  if (advance(lp, ep)) { return(1); } } while (lp > curlp);  return(0);
+      case CCHR|STAR:  curlp = lp;  while (*lp++ == *ep) { }  ++ep;  do {  lp--;  if (advance(lp, ep)) { return(1); } } while (lp > curlp);  return(0);
       case CCL|STAR:
-      case NCCL|STAR:  curlp = lp;  while (cclass(ep, *lp++, ep[-1] == (CCL|STAR))) { }  ep += *ep;  goto star;
-      star:  do {  lp--;  if (advance(lp, ep)) { return(1); } } while (lp > curlp);  return(0);
+      case NCCL|STAR:  curlp = lp;  while (cclass(ep, *lp++, ep[-1] == (CCL|STAR))) { }  ep += *ep;  do {  lp--;  if (advance(lp, ep)) { return(1); } } while (lp > curlp);  return(0);
       default: error(Q);
     }
   }
@@ -186,33 +185,32 @@ void compile(int eof) {  int c, cclcnt;  char *ep = expbuf, *lastep, bracket[NBR
   if (c == eof) {  if (*ep==0) { error(Q); }  return; }
   nbra = 0;  if (c=='^') { c = getchr();  *ep++ = CCIRC; }  peekc = c;  lastep = 0;
   for (;;) {
-    if (ep >= &expbuf[ESIZE]) { goto cerror; }  c = getchr();  if (c == '\n') { peekc = c;  c = eof; }
-    if (c==eof) { if (bracketp != bracket) { goto cerror; }  *ep++ = CEOF;  return;  }
+    if (ep >= &expbuf[ESIZE]) { expbuf[0] = 0;  nbra = 0;  error(Q); }  c = getchr();  if (c == '\n') { peekc = c;  c = eof; }
+    if (c==eof) { if (bracketp != bracket) { expbuf[0] = 0;  nbra = 0;  error(Q); }  *ep++ = CEOF;  return;  }
     if (c!='*') { lastep = ep; }
     switch (c) {
       case '\\':
         if ((c = getchr())=='(') {
-          if (nbra >= NBRA) { goto cerror; }  *bracketp++ = nbra;  *ep++ = CBRA;  *ep++ = nbra++;  continue;
+          if (nbra >= NBRA) { expbuf[0] = 0;  nbra = 0;  error(Q); }  *bracketp++ = nbra;  *ep++ = CBRA;  *ep++ = nbra++;  continue;
         }
-        if (c == ')') {  if (bracketp <= bracket) { goto cerror; }  *ep++ = CKET;  *ep++ = *--bracketp;  continue; }
+        if (c == ')') {  if (bracketp <= bracket) { expbuf[0] = 0;  nbra = 0;  error(Q); }  *ep++ = CKET;  *ep++ = *--bracketp;  continue; }
         if (c>='1' && c<'1'+NBRA) { *ep++ = CBACK;  *ep++ = c-'1';  continue; }
-        *ep++ = CCHR;  if (c=='\n') { goto cerror; }  *ep++ = c;  continue;
+        *ep++ = CCHR;  if (c=='\n') { expbuf[0] = 0;  nbra = 0;  error(Q); }  *ep++ = c;  continue;
       case '.': *ep++ = CDOT;  continue;
-      case '\n':  goto cerror;
-      case '*':  if (lastep==0 || *lastep==CBRA || *lastep==CKET) { goto defchar; }  *lastep |= STAR; continue;
-      case '$':  if ((peekc=getchr()) != eof && peekc!='\n') { goto defchar; }  *ep++ = CDOL;  continue;
+      case '\n':  expbuf[0] = 0;  nbra = 0;  error(Q);
+      case '*':  if (lastep==0 || *lastep==CBRA || *lastep==CKET) { *ep++ = CCHR;  *ep++ = c; }  *lastep |= STAR; continue;
+      case '$':  if ((peekc=getchr()) != eof && peekc!='\n') { *ep++ = CCHR;  *ep++ = c; }  *ep++ = CDOL;  continue;
       case '[':  *ep++ = CCL;  *ep++ = 0;  cclcnt = 1;  if ((c=getchr()) == '^') {  c = getchr();  ep[-2] = NCCL; }
         do {
-          if (c=='\n') { goto cerror; }  if (c=='-' && ep[-1]!=0) {
+          if (c=='\n') { expbuf[0] = 0;  nbra = 0;  error(Q); }  if (c=='-' && ep[-1]!=0) {
             if ((c=getchr())==']') { *ep++ = '-';  cclcnt++;  break; }
-            while (ep[-1] < c) {  *ep = ep[-1] + 1;  ep++;  cclcnt++;  if (ep >= &expbuf[ESIZE]) { goto cerror; } }
+            while (ep[-1] < c) {  *ep = ep[-1] + 1;  ep++;  cclcnt++;  if (ep >= &expbuf[ESIZE]) { expbuf[0] = 0;  nbra = 0;  error(Q); } }
           }
-          *ep++ = c;  cclcnt++;  if (ep >= &expbuf[ESIZE]) { goto cerror; }
+          *ep++ = c;  cclcnt++;  if (ep >= &expbuf[ESIZE]) { expbuf[0] = 0;  nbra = 0;  error(Q); }
         } while ((c = getchr()) != ']');
         lastep[1] = cclcnt;  continue;
-      defchar:  default:  *ep++ = CCHR;  *ep++ = c;
     }
-  }  cerror:  expbuf[0] = 0;  nbra = 0;  error(Q);
+  }
 }
 
 void error(char *s) {  int c;  wrapp = 0;  listf = 0;  listn = 0;  putchr_('?');  puts_(s);
