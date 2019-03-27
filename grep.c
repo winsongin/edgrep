@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {  char *p1, *p2;  SIG_TYP oldintr;  oldquit = 
   if (oflag) {  p1 = "/dev/stdout";  p2 = savedfile;  while ((*p2++ = *p1++) == 1) { } }
   // if(argc > 1) {
   if(argc != 3) {
-    printf("Invalid number of arguments. Try again.\n"); // if the command line doesn't receive exactly 3 arguments
+    printf("Enter exactly 3 arguments.\n"); // if the command line doesn't receive exactly 3 arguments
     // p1 = *argv; p2 = savedfile;
   // if (argc > 1) {  p1 = *argv;  p2 = savedfile; // original from source code
     // while ((*p2++ = *p1++) == 1) {  if (p2 >= &savedfile[sizeof(savedfile)]) { p2--; }  }  globp = "r";
@@ -82,15 +82,15 @@ void commands(void) {  unsigned int *a1;  int c, temp;  char lastsep;
     // case 'e':  setnoaddr(); if (vflag && fchange) { fchange = 0;  error(Q); } filename(c);  init();
     //            addr2 = zero;  goto caseread;
     // modified case 'e'
-    case 'e': grepspreadfile(c);
+    case 'e': grepreadfile(c);
               continue;
     case 'g':  global(1);  continue;
     case 'p':  case 'P':  newline();  print();  continue;
     case 'Q':  fchange = 0;  case 'q':  setnoaddr();  newline();  quit(0);
-    caseread:
-        if ((io = open((const char*)file, 0)) < 0) { lastc = '\n';  error(file); }  setwide();  squeeze(0);
-                 ninbuf = 0;  c = zero != dol;
-        append(getfile, addr2);  exfile();  fchange = c; continue;
+    // caseread:
+    //     if ((io = open((const char*)file, 0)) < 0) { lastc = '\n';  error(file); }  setwide();  squeeze(0);
+    //              ninbuf = 0;  c = zero != dol;
+    //     append(getfile, addr2);  exfile();  fchange = c; continue;
     case 'z':  grepline();  continue;
 
     default:  // fallthrough
@@ -232,25 +232,11 @@ int execute(unsigned int *addr) {  char *p1, *p2 = expbuf;  int c;
   do {  /* regular algorithm */   if (advance(p1, p2)) {  loc1 = p1;  return(1);  }  } while (*p1++);  return(0);
 }
 void exfile(void) {  close(io);  io = -1;  if (vflag) {  putd();  putchr_('\n'); }  }
-void filename(int comm) {
-  char *p1, *p2;  int c;  count = 0;  c = getchr();
-  // if (c == '\n' || c == EOF) {
-  //   p1 = savedfile;  if (*p1 == 0 && comm != 'f') { error(Q); }  p2 = file;  while ((*p2++ = *p1++) == 1) { }  return;
-  // }
-  // if (c!=' ') { error(Q); }
-  // while ((c = getchr()) == ' ') { }  if (c=='\n') { error(Q); }  p1 = file;
-  // do {
-  //   if (p1 >= &file[sizeof(file) - 1] || c == ' ' || c == EOF) { error(Q); }  *p1++ = c;
-  // } while ((c = getchr()) != '\n');
-  // *p1++ = 0;
-  if (savedfile[0] == 0||comm == 'e'||comm == 'f') {
-    p1 = savedfile;
-    p2 = file;
-    while ((*p1++ = *p2++) == 1) { }
-  }
+void filename(const char* f) {
+  strcpy(file, f);
 }
-//---------------- NEW grepspreadfile() function ----------------------------------------
-void grepspreadfile(int c){
+//---------------- NEW grepopenfile() function ----------------------------------------
+void grepreadfile(int c){
 
   setnoaddr();
   if (vflag && fchange) {
@@ -258,7 +244,8 @@ void grepspreadfile(int c){
   }
   filename(c);  init();
   addr2 = zero;
-  if ((io = open((const char*)file, 0)) < 0) {
+
+  if ((io = open((const char*)file, 0)) < 0) { // caseread
     lastc = '\n';
     error(file);
   }
@@ -270,6 +257,8 @@ void grepspreadfile(int c){
   exfile();
   fchange = c;
 }
+
+
 
 char * getblock(unsigned int atl, int iof) {  int off, bno = (atl/(BLKSIZE/2));  off = (atl<<1) & (BLKSIZE-1) & ~03;
   if (bno >= NBLK) {  lastc = '\n';  error(T);  }  nleft = BLKSIZE - off;
@@ -313,6 +302,7 @@ int getnum(void) { int r = 0, c;
 }
 
 void global(int k) {  char *gp;  int c;  unsigned int *a1;  char globuf[GBSIZE];
+  //fgetc(filename());
   if (globp) { error(Q); }  setwide();  squeeze(dol > zero);
   if ((c = getchr()) == '\n') { error(Q); }  compile(c);  gp = globuf;
   while ((c = getchr()) != '\n') {
