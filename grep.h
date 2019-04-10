@@ -12,4 +12,7 @@ void putd(void);
 void putfile(void);  int putline(void);  void puts_(char *sp); void quit(int n);
 void reverse(unsigned int *a1, unsigned int *a2);
 void setwide(void);  void setnoaddr(void);  void squeeze(int);
-void greperror(char);  void grepline(void); void grepreadfile(int); void search(char*);
+void greperror(char);  void grepline(void); void readfile(const char*);
+void search(const char*); void drawline(); void ungetch_(int); int getch_(void);
+void process_dir(const char* dir, const char* searchfor, void (*fp)(const char*, const char*));
+void printcommand(void);
